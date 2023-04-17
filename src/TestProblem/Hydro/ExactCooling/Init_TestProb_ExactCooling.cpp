@@ -7,6 +7,7 @@
 // =======================================================================================
 static double EC_Temp;
 static double EC_Dens;
+       int    count = 0;
 // =======================================================================================
 
 
@@ -181,9 +182,8 @@ void SetGridIC( real fluid[], const double x, const double y, const double z, co
 
    double Dens, MomX, MomY, MomZ, Pres, Eint, Etot;
 // Convert the input number density into mass density rho
-   double cl_dens = (EC_Dens*Const_mp*0.61) * (Const_g/pow(Const_cm, 3))/UNIT_D;
-   double cl_kB   = 0.61*Const_amu/Const_kB*(UNIT_E/UNIT_M);
-   double cl_pres = cl_dens*EC_Temp*cl_kB;
+   double cl_dens = (EC_Dens*Const_mp*0.61) / UNIT_D;
+   double cl_pres = EC_Dens*Const_kB*EC_Temp / UNIT_P; 
 
    Dens = cl_dens;
    MomX = 0.0;
@@ -201,6 +201,14 @@ void SetGridIC( real fluid[], const double x, const double y, const double z, co
    fluid[MOMZ] = MomZ;
    fluid[ENGY] = Etot;
 
+   double Temp_tmp;
+   Temp_tmp = (real) Hydro_Con2Temp( fluid[DENS], fluid[MOMX], fluid[MOMY], fluid[MOMZ], fluid[ENGY], fluid+NCOMP_FLUID, 
+                                 true, MIN_TEMP, 0.0, EoS_DensEint2Temp_CPUPtr, 
+                                 EoS_AuxArray_Flt, EoS_AuxArray_Int, h_EoS_Table );
+   count += 1;
+   if ( count < 300 && count > 257 ){
+//      printf("Debugging in Init!! fluid[DENS] = %14.8e, fluid[MOMX] = %14.8e, fluid[ENGY] = %14.8e, Temp = %14.8e\n", fluid[DENS], fluid[MOMX], fluid[ENGY], Temp_tmp);
+   }
 } // FUNCTION : SetGridIC
 
 

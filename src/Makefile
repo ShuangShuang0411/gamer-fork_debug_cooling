@@ -37,11 +37,11 @@ SIMU_OPTION += -DMODEL=HYDRO
 
 # enable gravity
 # --> must enable SUPPORT_FFTW
-SIMU_OPTION += -DGRAVITY
+#SIMU_OPTION += -DGRAVITY
 
 # enable particles
 # --> must enable GRAVITY
-SIMU_OPTION += -DPARTICLE
+#SIMU_OPTION += -DPARTICLE
 
 # support Grackle, a chemistry and radiative cooling library
 # --> must set NCOMP_PASSIVE_USER according to the primordial chemistry network set by GRACKLE_PRIMORDIAL
