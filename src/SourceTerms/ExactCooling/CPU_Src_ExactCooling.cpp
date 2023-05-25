@@ -11,9 +11,9 @@
 #include "CUFLU_Shared_FluUtility.cu"
 #include "CUDA_ConstMemory.h"
 
-extern real *d_SrcEC_TEF_lambda;
-extern real *d_SrcEC_TEF_alpha;
-extern real *d_SrcEC_TEFc;
+extern double *d_SrcEC_TEF_lambda;
+extern double *d_SrcEC_TEF_alpha;
+extern double *d_SrcEC_TEFc;
 
 #endif // #ifdef __CUDACC__
 
@@ -37,10 +37,10 @@ void Src_End_ExactCooling();
 void Cool_fct( double Dens, double Temp, double* Emis, double* Lambdat, double Z, double cl_moli_mole, double mp );
 #endif
 GPU_DEVICE static
-double TEF( double TEMP, int k, const real TEF_lambda[], const real TEF_alpha[], const real TEFc[],
+double TEF( double TEMP, int k, const double TEF_lambda[], const double TEF_alpha[], const double TEFc[],
             const double AuxArray_Flt[], const int AuxArray_Int[] );
 GPU_DEVICE static
-double TEFinv( double Y, int k, const real TEF_lambda[], const real TEF_alpha[], const real TEFc[],
+double TEFinv( double Y, int k, const double TEF_lambda[], const double TEF_alpha[], const double TEFc[],
                const double AuxArray_Flt[], const int AuxArray_Int[] );
 
 
@@ -88,15 +88,22 @@ void Src_SetAuxArray_ExactCooling( double AuxArray_Flt[], int AuxArray_Int[] )
 
    const int    TEF_N      = SrcTerms.EC_TEF_N;   // number of points for lambda(T) sampling in LOG
    const int    TEF_int    = TEF_N-1;   // number of intervals
-   const double TEF_TN     = 1.e14;   // == Tref, high enough, but affects sampling resolution
+   const double TEF_TN     = 1.e14;   // == Tref, high enough, but affects sampling resolution (Kelvin)
    const double TEF_Tmin   = MIN_TEMP;   // MIN temperature 
+#  ifdef GAMER_DEBUG
+   if ( TEF_Tmin <= 0.0 ){
+      Aux_Error( ERROR_INFO, "TEF_Tmin invalid (can not be smaller or equal to zero)!!\n" );
+   }
+#  endif
    const double TEF_dltemp = (log10(TEF_TN) - log10(TEF_Tmin))/TEF_int;   // sampling resolution (Kelvin), LOG!
 
-   const double cl_Z         = 0.3;    // metallicity (in Zsun)
-   const double cl_moli_mole = 1.464;  // Assume the molecular weights are constant, mu_e*mu_i = 1.464
-   const double cl_mol       = 0.61;   // mean (total) molecular weights 
+   const double cl_X         = 0.7;      // mass-fraction of hydrogen
+   const double cl_Z         = 0.018;    // metallicity (in Zsun)
+   const double cl_mol       = 1.0/(2*cl_X+0.75*(1-cl_X-cl_Z)+cl_Z*0.5);   // mean (total) molecular weights 
+   const double cl_mole      = 2.0/(1+cl_X);   // mean electron molecular weights
+   const double cl_moli      = 1.0/cl_X;   // mean proton molecular weights
+   const double cl_moli_mole = cl_moli*cl_mole;  // Assume the molecular weights are constant, mu_e*mu_i = 1.464
 
-   printf("Debugging!! TEF_Tmin = %14.8e, TEF_dltemp = %14.8e\n", TEF_Tmin, TEF_dltemp);
 // Store them in the aux array 
    AuxArray_Flt[0] = 1.0/(GAMMA-1.0);
    AuxArray_Flt[1] = TEF_TN;
@@ -105,8 +112,8 @@ void Src_SetAuxArray_ExactCooling( double AuxArray_Flt[], int AuxArray_Int[] )
    AuxArray_Flt[4] = cl_Z;
    AuxArray_Flt[5] = cl_moli_mole;
    AuxArray_Flt[6] = cl_mol;
-   AuxArray_Flt[7] = Const_mp;
-   AuxArray_Flt[8] = Const_kB;
+   AuxArray_Flt[7] = MU_NORM/UNIT_M; 
+   AuxArray_Flt[8] = (Const_kB/UNIT_E) * (MU_NORM/UNIT_M);   //kB*mp
 
    AuxArray_Int[0] = TEF_N;
    
@@ -145,11 +152,11 @@ void Src_SetAuxArray_ExactCooling( double AuxArray_Flt[], int AuxArray_Int[] )
 //-----------------------------------------------------------------------------------------
 GPU_DEVICE_NOINLINE
 static void Src_ExactCooling( real fluid[], const real B[],
-                               const SrcTerms_t *SrcTerms, const real dt, const real dh,
-                               const double x, const double y, const double z,
-                               const double TimeNew, const double TimeOld,
-                               const real MinDens, const real MinPres, const real MinEint,
-                               const EoS_t *EoS, const double AuxArray_Flt[], const int AuxArray_Int[] )
+                              const SrcTerms_t *SrcTerms, const real dt, const real dh,
+                              const double x, const double y, const double z,
+                              const double TimeNew, const double TimeOld,
+                              const real MinDens, const real MinPres, const real MinEint,
+                              const EoS_t *EoS, const double AuxArray_Flt[], const int AuxArray_Int[] )
 {
 
 // check
@@ -157,15 +164,6 @@ static void Src_ExactCooling( real fluid[], const real B[],
    if ( AuxArray_Flt == NULL )   printf( "ERROR : AuxArray_Flt == NULL in %s !!\n", __FUNCTION__ );
    if ( AuxArray_Int == NULL )   printf( "ERROR : AuxArray_Int == NULL in %s !!\n", __FUNCTION__ );
 #  endif
-
-// example
-   /*
-   const real CoolingRate      = (real)AuxArray_Flt[0];
-   Eint  = Hydro_Con2Eint( fluid[DENS], fluid[MOMX], fluid[MOMY], fluid[MOMZ], fluid[ENGY],
-                           CheckMinEint_Yes, MinEint, Emag );
-   Enth  = fluid[ENGY] - Eint;
-   Eint -= fluid[DENS]*CoolingRate*dt;
-   */
 
 
    const int    TEF_N        = AuxArray_Int[0];   // number of points for lambda(T) sampling in LOG
@@ -176,19 +174,19 @@ static void Src_ExactCooling( real fluid[], const real B[],
    const double cl_moli_mole = AuxArray_Flt[5];   // Assume the molecular weights are constant, mu_e*mu_i = 1.464 
    const double cl_mol       = AuxArray_Flt[6];   // mean (total) molecular weights 
    const double cl_mp        = AuxArray_Flt[7];   // proton mass
-   const double cl_kB        = AuxArray_Flt[8];   // Boltzmann constant in erg/K
+   const double cl_kB_mp     = AuxArray_Flt[8];   // Boltzmann constant in erg/K
 
 #  ifdef __CUDACC__
-   const real *TEF_lambda = SrcTerms->EC_TEF_lambda_DevPtr;
-   const real *TEF_alpha  = SrcTerms->EC_TEF_alpha_DevPtr;
-   const real *TEFc       = SrcTerms->EC_TEFc_DevPtr;
+   const double *TEF_lambda = SrcTerms->EC_TEF_lambda_DevPtr;
+   const double *TEF_alpha  = SrcTerms->EC_TEF_alpha_DevPtr;
+   const double *TEFc       = SrcTerms->EC_TEFc_DevPtr;
 #  else
-   const real *TEF_lambda = h_SrcEC_TEF_lambda;
-   const real *TEF_alpha  = h_SrcEC_TEF_alpha;
-   const real *TEFc       = h_SrcEC_TEFc;
+   const double *TEF_lambda = h_SrcEC_TEF_lambda;
+   const double *TEF_alpha  = h_SrcEC_TEF_alpha;
+   const double *TEFc       = h_SrcEC_TEFc;
 #  endif
 
-   double Temp, Eint, Enth, Emag, rho_num, Tini, Eintf, dedtmean, Tk, lambdaTini, tcool, Ynew;
+   double Temp, Eint, Enth, Emag, Pres, rho_num, Tini, Eintf, dedtmean, Tk, lambdaTini, tcool, Ynew;
    int k, knew;
    const bool CheckMinTemp_Yes = true;
 
@@ -198,7 +196,6 @@ static void Src_ExactCooling( real fluid[], const real B[],
 #  else
    Emag  = (real)0.0;
 #  endif
-// EoS->DensEint2Temp_GPUPtr, EoS_DensEint2Temp_CPUPtr
 
 #  ifdef __CUDACC__
    Temp = (real) Hydro_Con2Temp( fluid[DENS], fluid[MOMX], fluid[MOMY], fluid[MOMZ], fluid[ENGY], fluid+NCOMP_FLUID, 
@@ -209,22 +206,31 @@ static void Src_ExactCooling( real fluid[], const real B[],
                                  CheckMinTemp_Yes, TEF_Tmin, Emag, EoS_DensEint2Temp_CPUPtr, 
                                  EoS_AuxArray_Flt, EoS_AuxArray_Int, h_EoS_Table );
 #  endif
-//   printf("Debugging!! I'm here.\n");
-   rho_num = fluid[DENS]/cl_mp;   // gas number density
-   Eint = cl_CV*cl_kB*rho_num*Temp;   // internal energy before cooling
+
+#  ifdef __CUDACC__ 
+   Pres = EoS->DensTemp2Pres_FuncPtr( fluid[DENS], Temp, NULL, EoS->AuxArrayDevPtr_Flt, EoS->AuxArrayDevPtr_Int, EoS->Table );
+   Eint = EoS->DensPres2Eint_FuncPtr( fluid[DENS], Pres, NULL, EoS->AuxArrayDevPtr_Flt, EoS->AuxArrayDevPtr_Int, EoS->Table );
+#  else
+   Pres = EoS_DensTemp2Pres_CPUPtr( fluid[DENS], Temp, NULL, EoS_AuxArray_Flt, EoS_AuxArray_Int, h_EoS_Table );
+   Eint = EoS_DensPres2Eint_CPUPtr( fluid[DENS], Pres, NULL, EoS_AuxArray_Flt, EoS_AuxArray_Int, h_EoS_Table );
+#  endif
    Enth = fluid[ENGY] - Eint;
    Tini = Temp;
 
 // (2) Decide the index k (an interval) where Tini falls into
    k = int((log10(Tini)-log10(TEF_Tmin))/TEF_dltemp);   // Note: array index changed, now starts from k=0 
-   Tk = POW(10.0, (log10(TEF_Tmin)+k*TEF_dltemp));
-//   printf("Debugging!! I'm here. TEF_lambda[0] = %14.8e, k = %d, Tini = %14.8e, TEF_Tmin = %14.8e, TEF_dltemp = %14.8e\n", TEF_lambda[0], k, Tini, TEF_Tmin, TEF_dltemp);
-   lambdaTini = TEF_lambda[k] * POW((Tini/Tk), TEF_alpha[k]);
-// Compute the cooling time
-   tcool = cl_CV*(cl_kB*cl_moli_mole*Tini)/(rho_num*cl_mol*lambdaTini);
-   if ( x < 7.089844 && x > 7.089843 && y < 0.761719 && y > 0.761718 &&  z < 8.496094 &&  z > 8.496093 ){
-      printf("Debugging!! k = %d, Tk = %f, lambdaTini = %14.8e, TEF_lambda[k] = %14.8e, TEF_alpha[k] = %14.8e\n", k, Tk, lambdaTini, TEF_lambda[k], TEF_alpha[k]);
+#  ifdef GAMER_DEBUG
+   if ( k < 0 || k > TEF_N-1 ){
+      printf( "WARNING: Array index invalid (beyond the range of 0 to TEF_N-1)!!\n" );
+      k = NULL_INT;
    }
+#  endif
+   Tk = POW(10.0, (log10(TEF_Tmin)+k*TEF_dltemp));
+   lambdaTini = TEF_lambda[k] * POW((Tini/Tk), TEF_alpha[k]);
+// Compute the cooling time and store it
+   tcool = cl_CV*Tini/(fluid[DENS]*lambdaTini);
+   fluid[TCOOL] = tcool;
+
 // (3) Calculate Ynew
    Ynew  = TEF( Tini, k, TEF_lambda, TEF_alpha, TEFc, AuxArray_Flt, AuxArray_Int ) + (Tini/TEF_TN)*(TEF_lambda[TEF_N-1]/lambdaTini)*(dt/tcool);
 
@@ -241,47 +247,39 @@ static void Src_ExactCooling( real fluid[], const real B[],
    label: // label for goto statement
 
 // (5) Calculate the new internal energy and update fluid[ENGY]
-   Eintf = cl_CV*cl_kB*rho_num*Temp;
-   if ( x < 7.089844 && x > 7.089843 && y < 0.761719 && y > 0.761718 &&  z < 8.496094 &&  z > 8.496093 ){ 
-      printf( "Debugging!! Eint = %14.8e, Eintf = %14.8e, fluid[DENS] = %14.8e, fluid[ENGY] = %14.8e, Temp = %14.8e, tcool = %f\n", Eint, Eintf, fluid[DENS], fluid[ENGY], Temp, tcool );
-   }
+#  ifdef __CUDACC__           
+   Pres = EoS->DensTemp2Pres_FuncPtr( fluid[DENS], Temp, NULL, EoS->AuxArrayDevPtr_Flt, EoS->AuxArrayDevPtr_Int, EoS->Table );
+   Eintf = EoS->DensPres2Eint_FuncPtr( fluid[DENS], Pres, NULL, EoS->AuxArrayDevPtr_Flt, EoS->AuxArrayDevPtr_Int, EoS->Table );
+#  else                       
+   Pres = EoS_DensTemp2Pres_CPUPtr( fluid[DENS], Temp, NULL, EoS_AuxArray_Flt, EoS_AuxArray_Int, h_EoS_Table );
+   Eintf = EoS_DensPres2Eint_CPUPtr( fluid[DENS], Pres, NULL, EoS_AuxArray_Flt, EoS_AuxArray_Int, h_EoS_Table );
+#  endif                      
+
+//   if ( x < 1.2e21 && x > 1.15e21 && y < 0.7e21 && y > 0.65e21 &&  z < 1.4e21 &&  z > 1.35e21 ){ 
+//   if ( x < 6.155 && x > 6.145 && y < 7.505 && y > 7.495 &&  z < 7.505 &&  z > 7.495 ){
+//      printf( "Debugging!! Eint = %14.8e, Eintf = %14.8e, Enth = %14.8e, fluid[DENS] = %14.8e, fluid[MOM] = %14.8e, fluid[ENGY] = %14.8e, Temp = %14.8e, tcool = %14.8e, Ynew = %14.8e, knew = %d, TEF_alpha[knew] = %14.8e, TEF_lambda[knew] = %14.8e, TEF_lambda[TEF_N-1] = %14.8e, Yk = %14.8e, Tk = %14.8e\n", Eint, Eintf, Enth, fluid[DENS], sqrt(SQR(fluid[MOMX])+SQR(fluid[MOMY])+SQR(fluid[MOMZ])), fluid[ENGY], Temp, tcool, Ynew, knew, TEF_alpha[knew], TEF_lambda[knew], TEF_lambda[TEF_N-1], TEFc[knew], Tk );
+//   }
    dedtmean = -(Eintf-Eint)/dt;
    fluid[ENGY] = Enth + Eintf;
 
-   if ( x < 7.089844 && x > 7.089843 && y < 0.761719 && y > 0.761718 &&  z < 8.496094 &&  z > 8.496093 ){
-//      printf( "Debugging!! Eint = %14.8e, Eintf = %14.8e, fluid[DENS] = %14.8e, fluid[ENGY] = %14.8e\n", Eint, Eintf, fluid[DENS], fluid[ENGY] );
-   }
-//   printf( "Debugging!! Finish Src_ExactCooling.\n" );
 } // FUNCTION : Src_ExactCooling
 
 
 GPU_DEVICE static
 // the temporal evolution function (TEF)
-double TEF( double TEMP, int k, const real TEF_lambda[], const real TEF_alpha[], const real TEFc[],
+double TEF( double TEMP, int k, const double TEF_lambda[], const double TEF_alpha[], const double TEFc[],
             const double AuxArray_Flt[], const int AuxArray_Int[] ){
 
-//   printf("Debugging!! I'm here.\n");
    const int    TEF_N      = AuxArray_Int[0];   // number of points for lambda(T) sampling in LOG
    const double TEF_TN     = AuxArray_Flt[1];   // == Tref, high enough, but affects sampling resolution
    const double TEF_Tmin   = AuxArray_Flt[2];   // MIN temperature 
    const double TEF_dltemp = AuxArray_Flt[3];   // sampling resolution (Kelvin), LOG!
 
-/*
-#  ifdef __CUDACC__
-   const real *TEF_lambda = SrcTerms->EC_TEF_lambda_DevPtr;
-   const real *TEF_alpha  = SrcTerms->EC_TEF_alpha_DevPtr;
-   const real *TEFc       = SrcTerms->EC_TEFc_DevPtr;
-#  else
-   const real *TEF_lambda = h_SrcEC_TEF_lambda;
-   const real *TEF_alpha  = h_SrcEC_TEF_alpha;
-   const real *TEFc       = h_SrcEC_TEFc;
-#  endif
-*/
    double TEF, Tk;
    Tk = POW(10.0, log10(TEF_Tmin) + k*TEF_dltemp);
 // Do the integration in Gapari (2009) Eq. (24)
    if ( TEF_alpha[k] != 1.0 ){
-       TEF = TEFc[k] + ((1.0/(1.0-TEF_alpha[k])) * (TEF_lambda[TEF_N-1] / TEF_lambda[k]) * (Tk/TEF_TN) * (1.0-POW((Tk/TEMP), (TEF_alpha[k]-1.0))));
+       TEF = TEFc[k] + ((1.0/(1.0-TEF_alpha[k])) * (TEF_lambda[TEF_N-1] / TEF_lambda[k]) * (Tk/TEF_TN) * (1.0 - POW((Tk/TEMP), (TEF_alpha[k]-1.0))));
    }
    else   TEF = TEFc[k] + ((TEF_lambda[TEF_N-1]/TEF_lambda[k]) * (Tk/TEF_TN) * log(Tk/TEMP));
    
@@ -291,7 +289,7 @@ double TEF( double TEMP, int k, const real TEF_lambda[], const real TEF_alpha[],
 
 GPU_DEVICE static
 // the INVERSE temporal evolution function (TEF^-1)
-double TEFinv( double Y, int k, const real TEF_lambda[], const real TEF_alpha[], const real TEFc[],
+double TEFinv( double Y, int k, const double TEF_lambda[], const double TEF_alpha[], const double TEFc[],
                const double AuxArray_Flt[], const int AuxArray_Int[] ){
 
    const int    TEF_N      = AuxArray_Int[0];   // number of points for lambda(T) sampling in LOG
@@ -299,26 +297,15 @@ double TEFinv( double Y, int k, const real TEF_lambda[], const real TEF_alpha[],
    const double TEF_Tmin   = AuxArray_Flt[2];   // MIN temperature 
    const double TEF_dltemp = AuxArray_Flt[3];   // sampling resolution (Kelvin), LOG!
 
-/*
-#  ifdef __CUDACC__
-   const real *TEF_lambda = SrcTerms->EC_TEF_lambda_DevPtr;
-   const real *TEF_alpha  = SrcTerms->EC_TEF_alpha_DevPtr;
-   const real *TEFc       = SrcTerms->EC_TEFc_DevPtr;
-#  else
-   const real *TEF_lambda = h_SrcEC_TEF_lambda;
-   const real *TEF_alpha  = h_SrcEC_TEF_alpha;
-   const real *TEFc       = h_SrcEC_TEFc;
-#  endif
-*/
    double TEFinv, Tk, Yk;
    Tk = POW(10.0, log10(TEF_Tmin) + k*TEF_dltemp); 
    Yk = TEFc[k]; 
  
    if ( TEF_alpha[k] != 1.0 ){
-      TEFinv = Tk*POW(1.0-(1.0-TEF_alpha[k])*(TEF_lambda[k]/TEF_lambda[TEF_N-1])*(TEF_TN/Tk)*(Y-Yk), 1.0/(1.0-TEF_alpha[k]));
+      TEFinv = Tk*POW(1.0-(1.0-TEF_alpha[k])*(TEF_lambda[k]/TEF_lambda[TEF_N-1])*(TEF_TN/Tk)*(double(Y)-Yk), 1.0/(1.0-TEF_alpha[k]));
    } 
-   else   TEFinv = Tk * exp(-((TEF_lambda[k]/TEF_lambda[TEF_N-1]) * (TEF_TN/Tk) * (Y-Yk)));
- 
+   else   TEFinv = Tk * exp(-((TEF_lambda[k]/TEF_lambda[TEF_N-1]) * (TEF_TN/Tk) * (double(Y)-Yk)));
+
    return TEFinv;
 }
 
@@ -365,21 +352,30 @@ void Src_WorkBeforeMajorFunc_ExactCooling( const int lv, const double TimeNew, c
    const double TEF_dltemp   = AuxArray_Flt[3];   // sampling resolution (Kelvin), LOG!
    const double cl_Z         = AuxArray_Flt[4];   // metallicity (in Zsun)
    const double cl_moli_mole = AuxArray_Flt[5];   // Assume the molecular weights are constant, mu_e*mu_i = 1.464 
+   const double cl_mol       = AuxArray_Flt[6];   // mean (total) molecular weights
    const double cl_mp        = AuxArray_Flt[7];   // proton mass
-   
+   const double cl_kB_mp     = AuxArray_Flt[8];   // Boltzmann constant in erg/K
+ 
    double emis, LAMBDAT, Ti, Tip1;
 // k = TEF_N-1
-   Cool_fct(1e-25, TEF_TN, &emis, &LAMBDAT, cl_Z, cl_moli_mole, cl_mp);
-//   printf( "Debugging!! LAMBDAT = %14.8e, emis = %14.8e, TEF_TN = %14.8e, h_SrcEC_TEF_lambda[0] = %14.8e\n", LAMBDAT, emis, TEF_TN, h_SrcEC_TEF_lambda[0] ); 
-   h_SrcEC_TEF_lambda[TEF_N-1] = LAMBDAT;
+   Cool_fct(1.0, TEF_TN, &emis, &LAMBDAT, cl_Z, cl_moli_mole, cl_mp);
+   h_SrcEC_TEF_lambda[TEF_N-1] = LAMBDAT*cl_mol/cl_moli_mole/cl_kB_mp;
    h_SrcEC_TEF_alpha[TEF_N-1]  = 0.0;  //h_SrcEC_TEF_alpha[TEF_N-2];   // is never required >> just as N-2
     
    for (int i=TEF_N-2; i>=0; i--){
       Ti   = POW(10, log10(TEF_Tmin) + i*TEF_dltemp);
       Tip1 = POW(10, log10(TEF_Tmin) + (i+1)*TEF_dltemp);
-      Cool_fct(1e-25, Ti, &emis, &LAMBDAT, cl_Z, cl_moli_mole, cl_mp);
-      h_SrcEC_TEF_lambda[i] = LAMBDAT;
+      Cool_fct(1.0, Ti, &emis, &LAMBDAT, cl_Z, cl_moli_mole, cl_mp);
+      h_SrcEC_TEF_lambda[i] = LAMBDAT*cl_mol/cl_moli_mole/cl_kB_mp;
+#     ifdef GAMER_DEBUG
+      if ( h_SrcEC_TEF_lambda[i] <= 0.0 ){
+         Aux_Error( ERROR_INFO, "h_SrcEC_TEF_lambda[i] invalid (can not be smaller or equal to zero)!!\n" );
+      }
+#     endif
       h_SrcEC_TEF_alpha[i]  = (log10(h_SrcEC_TEF_lambda[i+1]) - log10(h_SrcEC_TEF_lambda[i])) / (log10(Tip1) - log10(Ti));
+//      if (i == TEF_N-2){
+//         printf("Debugging! i = %d, TEF_dltemp = %14.8e, TEF_Tmin = %14.8e, Ti = %14.8e, Tip1 = %14.8e, LAMBDAT = %14.8e, h_SrcEC_TEF_lambda[i] = %14.8e, h_SrcEC_TEF_alpha[i] = %14.8e\n", i, TEF_dltemp, TEF_Tmin, Ti, Tip1, LAMBDAT, h_SrcEC_TEF_lambda[i], h_SrcEC_TEF_alpha[i]);
+//      }
    }
     
 // Initialize the constant of intregration
@@ -405,7 +401,7 @@ void Src_WorkBeforeMajorFunc_ExactCooling( const int lv, const double TimeNew, c
 #  endif
 
    IsInit = true; 
-   printf( "Debugging!! Finish lambda initialization. h_SrcEC_TEF_lambda[520] = %14.8e.\n", h_SrcEC_TEF_lambda[520] );
+//   printf( "Debugging!! Finish lambda initialization. h_SrcEC_TEF_lambda[TEF_N-2] = %14.8e.\n", h_SrcEC_TEF_lambda[TEF_N-2] );
 
 } // FUNCTION : Src_WorkBeforeMajorFunc_ExactCooling
 #endif
@@ -426,7 +422,7 @@ void Src_WorkBeforeMajorFunc_ExactCooling( const int lv, const double TimeNew, c
 void Src_PassData2GPU_ExactCooling()
 {
 
-   const int TEF_N = SrcTerms.EC_TEF_N;   // number of points for lambda(T) sampling in LOG
+   const long TEF_N = sizeof(double)*SrcTerms.EC_TEF_N;   // number of points for lambda(T) sampling in LOG
 
 // use synchronous transfer
    CUDA_CHECK_ERROR(  cudaMemcpy( d_SrcEC_TEF_lambda, h_SrcEC_TEF_lambda, TEF_N, cudaMemcpyHostToDevice )  );
@@ -562,52 +558,6 @@ void Src_Init_ExactCooling()
 //   Src_WorkBeforeMajorFunc_EC_Ptr = Src_WorkBeforeMajorFunc_ExactCooling;
 //   Src_End_EC_Ptr                 = Src_End_ExactCooling;
 
-/*
-   printf( "Debugging!! h_SrcEC_TEF_lambda[0] = %14.8e\n", h_SrcEC_TEF_lambda[0]);
-
-// Initialize the cooling function
-   const int    TEF_N        = Src_EC_AuxArray_Int[0];   // number of points for lambda(T) sampling in LOG
-   const int    TEF_int      = TEF_N-1;                  // number of intervals
-   const double TEF_TN       = Src_EC_AuxArray_Flt[1];   // == Tref, high enough, but affects sampling resolution
-   const double TEF_Tmin     = Src_EC_AuxArray_Flt[2];   // MIN temperature 
-//   printf( "Finish loading parameters!!\n" );
-   const double TEF_dltemp   = Src_EC_AuxArray_Flt[3];   // sampling resolution (Kelvin), LOG!
-   const double cl_Z         = Src_EC_AuxArray_Flt[4];   // metallicity (in Zsun)
-   const double cl_moli_mole = Src_EC_AuxArray_Flt[5];   // Assume the molecular weights are constant, mu_e*mu_i = 1.464 
-   const double cl_mp        = Src_EC_AuxArray_Flt[7];   // proton mass
-
-   printf( "Debugging!! TEF_N = %d\n", TEF_N);
-
-   double emis, LAMBDAT, Ti, Tip1;
-// k = TEF_N-1
-   Cool_fct(1e-25, TEF_TN, emis, LAMBDAT, cl_Z, cl_moli_mole, cl_mp);
-   printf( "Debugging!! LAMBDAT = %14.8e, emis = %14.8e, TEF_TN = %14.8e, h_SrcEC_TEF_lambda[0] = %14.8e\n", LAMBDAT, emis, TEF_TN, h_SrcEC_TEF_lambda[0] ); 
-   h_SrcEC_TEF_lambda[TEF_N-1] = LAMBDAT;
-//   printf( "Finish loading parameters!!\n" );
-   h_SrcEC_TEF_alpha[TEF_N-1]  = 0.0;  //h_SrcEC_TEF_alpha[TEF_N-2];   // is never required >> just as N-2
-   
-   for (int i=TEF_N-2; i>=0; i--){
-      Ti   = POW(10, log10(TEF_Tmin) + i*TEF_dltemp);
-      Tip1 = POW(10, log10(TEF_Tmin) + (i+1)*TEF_dltemp);
-  
-      Cool_fct(1e-25, Ti, emis, LAMBDAT, cl_Z, cl_moli_mole, cl_mp);
-      h_SrcEC_TEF_lambda[i] = LAMBDAT;
-      h_SrcEC_TEF_alpha[i]  = (log10(h_SrcEC_TEF_lambda[i+1]) - log10(h_SrcEC_TEF_lambda[i])) / (log10(Tip1) - log10(Ti));
-   }
-
-// Initialize the constant of intregration
-   double Ti_2, Tip1_2;
-   h_SrcEC_TEFc[TEF_N-1] = 0.0;   // TEF(Tref)
-   for (int i=TEF_N-2; i>=0; i--){
-      Ti_2   = POW(10.0, log10(TEF_Tmin) + i*TEF_dltemp);
-      Tip1_2 = POW(10.0, log10(TEF_Tmin) + (i+1)*TEF_dltemp);
- 
-      if (h_SrcEC_TEF_alpha[i] != 1.0){
-         h_SrcEC_TEFc[i] = h_SrcEC_TEFc[i+1] - (1.0/(1.0-h_SrcEC_TEF_alpha[i]))*(h_SrcEC_TEF_lambda[TEF_N-1]/h_SrcEC_TEF_lambda[i])*(Ti_2/TEF_TN)*(1.0-POW(Ti_2/Tip1_2, h_SrcEC_TEF_alpha[i]-1.0));
-      } 
-      else   h_SrcEC_TEFc[i] = h_SrcEC_TEFc[i+1] - (h_SrcEC_TEF_lambda[TEF_N-1]/h_SrcEC_TEF_lambda[i])*(Ti_2/TEF_TN)*log(Ti_2/Tip1_2);
-   }
-*/
 } // FUNCTION : Src_Init_ExactCooling
 
 
@@ -653,14 +603,17 @@ void Cool_fct( double Dens, double Temp, double* Emis, double* Lambdat, double Z
    if (QLOG1 < -30.0)   QLOG1 = -30.0;
    QLAMBDA1 = pow(10.0, QLOG1);
    
-//   Lambdat = QLAMBDA0 + Zm*QLAMBDA1;
-// For testing purpose
-   *Lambdat = 3.2217e-27 * sqrt(Temp);  // / (UNIT_E*POW(UNIT_L, 3)/UNIT_T);
-   
+   *Lambdat = (QLAMBDA0 + Zm*QLAMBDA1) / (UNIT_E*pow(UNIT_L, 3)/UNIT_T);
+// For testing purpose (1)
+//   *Lambdat = 3.2217e-27 * sqrt(Temp) / (UNIT_E*pow(UNIT_L, 3)/UNIT_T);
+
+// For testing purpose (2)
+//   if (TLOG >= 5.0)   *Lambdat = 3.2217e-27 * sqrt(Temp) / (UNIT_E*pow(UNIT_L, 3)/UNIT_T);
+//   else               *Lambdat = 3.2217e-27 * pow(Temp, 0.4) / (UNIT_E*pow(UNIT_L, 3)/UNIT_T);
+
    ne_ni = (Dens*Dens) / (cl_moli_mole*mp*mp);
    *Emis = ne_ni * (*Lambdat); // emissivity: lum/vol
 
-//   printf( "Debugging!! I'm working! Lambdat = %14.8e\n", Lambdat); 
 }
 
 

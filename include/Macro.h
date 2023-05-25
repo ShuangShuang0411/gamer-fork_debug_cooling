@@ -87,7 +87,6 @@
 // load-balance parallelization
 #define HILBERT      1
 
-
 // random number implementation
 #define RNG_GNU_EXT  1
 #define RNG_CPP11    2
@@ -148,8 +147,11 @@
 #  define NCOMP_PASSIVE_BUILTIN1    0
 # endif
 
+// ExactCooling source term
+#  define NCOMP_PASSIVE_BUILTIN2    1
+
 // total number of built-in scalars
-#  define NCOMP_PASSIVE_BUILTIN     ( NCOMP_PASSIVE_BUILTIN0 + NCOMP_PASSIVE_BUILTIN1 )
+#  define NCOMP_PASSIVE_BUILTIN     ( NCOMP_PASSIVE_BUILTIN0 + NCOMP_PASSIVE_BUILTIN1 + NCOMP_PASSIVE_BUILTIN2 )
 
 #endif // #if ( MODEL == HYDRO )
 
@@ -245,6 +247,8 @@
 #  define PASSIVE_NEXT_IDX2   ( PASSIVE_NEXT_IDX1 )
 # endif
 
+#  define TCOOL               ( PASSIVE_NEXT_IDX2 )
+
 #endif // #if ( NCOMP_PASSIVE > 0 )
 
 // field indices of magnetic --> element of [0 ... NCOMP_MAG-1]
@@ -281,6 +285,8 @@
 #  define FLUX_NEXT_IDX2   ( FLUX_NEXT_IDX1  )
 # endif
 
+#  define FLUX_TCOOL       ( FLUX_NEXT_IDX2  )
+
 #endif // #if ( NCOMP_PASSIVE > 0 )
 
 // bitwise field indices
@@ -302,6 +308,8 @@
 # ifdef COSMIC_RAY
 #  define _CRAY               ( 1L << CRAY )
 # endif
+
+#  define _TCOOL              ( 1L << TCOOL )
 
 #endif // #if ( NCOMP_PASSIVE > 0 )
 
@@ -331,6 +339,8 @@
 # ifdef COSMIC_RAY
 #  define _FLUX_CRAY          ( 1L << FLUX_CRAY )
 # endif
+
+#  define _FLUX_TCOOL         ( 1L << FLUX_TCOOL )
 
 #endif // #if ( NFLUX_PASSIVE > 0 )
 
@@ -657,6 +667,15 @@
 #        define DER_GHOST_SIZE      1
 
 
+// number of ghost zones for feedback
+// --> can be changed manually
+// --> set to 0 if applicable to improve performance
+#ifdef FEEDBACK
+#        define FB_GHOST_SIZE       3
+#endif
+
+
+
 // patch size (number of cells of a single patch in the x/y/z directions)
 #define PS1             ( 1*PATCH_SIZE )
 #define PS2             ( 2*PATCH_SIZE )
@@ -690,6 +709,9 @@
 #  define SRC_NXT       ( PS1 + 2*SRC_GHOST_SIZE )                // use patch as the unit
 #  define SRC_NXT_P1    ( SRC_NXT + 1 )
 #  define DER_NXT       ( PS1 + 2*DER_GHOST_SIZE )                // use patch as the unit
+#ifdef FEEDBACK
+#  define FB_NXT        ( PS2 + 2*FB_GHOST_SIZE )                 // use patch group as the unit
+#endif
 
 
 // size of auxiliary arrays and EoS tables
@@ -738,6 +760,12 @@
 // used by INTERP_MASK for now but can be applied to other places in the future
 #define MASKED                   true
 #define UNMASKED                 false
+
+
+// in FB_AdvanceDt(), store the updated fluid data in a separate array to avoid data racing among different patch groups
+#if ( defined FEEDBACK  &&  FB_GHOST_SIZE > 0 )
+#  define FB_SEP_FLUOUT
+#endif
 
 
 // extreme values
@@ -1014,7 +1042,6 @@
 #ifndef GRAVITY
 #  undef STORE_PAR_ACC
 #endif
-
 
 
 #endif  // #ifndef __MACRO_H__

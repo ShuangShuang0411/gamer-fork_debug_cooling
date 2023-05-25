@@ -120,7 +120,8 @@ void Init_Field()
    if ( Idx_Dual != DUAL )    Aux_Error( ERROR_INFO, "inconsistent Idx_Dual (%d != %d) !!\n", Idx_Dual, DUAL );
 #  endif
 
-
+   Idx_tcool = AddField( "tcool", NORMALIZE_NO, INTERP_FRAC_NO );
+   if ( Idx_tcool != TCOOL )    Aux_Error( ERROR_INFO, "inconsistent Idx_tcool (%d != %d) !!\n", Idx_tcool, TCOOL );
 
 // 5. validate if all fields have been set properly
    if ( NDefinedField != NCOMP_TOTAL )
