@@ -204,7 +204,7 @@ double Mis_GetTimeStep( const int lv, const double dTime_SyncFaLv, const double 
 // 1.9 CRITERION NINE : ExactCooling source term ##HYDRO ONLY##
 // =============================================================================================================
 #  if   ( MODEL == HYDRO )
-   dTime[NdTime] = dTime_dt * Mis_GetTimeStep_ExactCooling( lv, dTime_dt );
+   dTime[NdTime] = 0.5 * dTime_dt * Mis_GetTimeStep_ExactCooling( lv, dTime_dt );
    sprintf( dTime_Name[NdTime++], "%s", "ExactCooling" );               
 #  endif
 

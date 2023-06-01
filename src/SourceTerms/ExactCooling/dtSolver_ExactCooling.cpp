@@ -49,7 +49,7 @@ double Mis_GetTimeStep_ExactCooling( const int lv, const double dTime_dt )
 #     endif
 
 //    initialize arrays
-      OMP_dt_EC[TID] = -__DBL_MAX__;
+      OMP_dt_EC[TID] = __DBL_MAX__;
 
       const double dh = amr->dh[lv];
 
@@ -59,6 +59,13 @@ double Mis_GetTimeStep_ExactCooling( const int lv, const double dTime_dt )
          for (int k=0; k<PS1; k++)  {
          for (int j=0; j<PS1; j++)  {
          for (int i=0; i<PS1; i++)  {
+
+#           ifdef MHD
+            real B[NCOMP_MAG];
+            MHD_GetCellCenteredBFieldInPatch( B, lv, PID, i, j, k, amr->MagSg[lv] );
+#           else
+            real *B    = NULL;
+#           endif // ifdef MHD ... else ...
 
             real tcool_Code = NULL_REAL;
 
@@ -77,9 +84,9 @@ double Mis_GetTimeStep_ExactCooling( const int lv, const double dTime_dt )
 //             get the input arrays
                real fluid[FLU_NIN_S];
                for (int v=0; v<FLU_NIN_S; v++)  fluid[v] = amr->patch[ amr->FluSg[lv] ][lv][PID]->fluid[v][k][j][i];
-               SrcTerms.ExactCooling_CPUPtr( fluid, B, &SrcTerms, 0.0, NULL_REAL, x, y, z, NULL_REAL, NULL_REAL,
-                                             MIN_DENS, MIN_PRES, MIN_EINT, NULL,
-                                             Src_ExactCooling_AuxArray_Flt, Src_ExactCooling_AuxArray_Int );
+               SrcTerms.EC_CPUPtr( fluid, B, &SrcTerms, 0.0, NULL_REAL, x, y, z, NULL_REAL, NULL_REAL,
+                                   MIN_DENS, MIN_PRES, MIN_EINT, NULL,
+                                   Src_EC_AuxArray_Flt, Src_EC_AuxArray_Int );
 #              ifdef TCOOL
                tcool_Code = fluid[TCOOL];
 #              endif

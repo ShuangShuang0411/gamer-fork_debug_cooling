@@ -75,7 +75,7 @@ SIMU_OPTION += -DRSOLVER=HLLC
 # number of user-defined passively advected scalars
 # --> set it to 0 or comment it out if none is required
 # --> useless for RTVD
-SIMU_OPTION += -DNCOMP_PASSIVE_USER=2
+SIMU_OPTION += -DNCOMP_PASSIVE_USER=1
 
 # magnetohydrodynamics
 #SIMU_OPTION += -DMHD
@@ -701,7 +701,7 @@ GPU_FILE    += CUAPI_Asyn_SrcSolver.cu  CUSRC_SrcSolver_IterateAllCells.cu  CUSR
                CUSRC_Src_User_Template.cu  CUSRC_Src_ExactCooling.cu 
 
 CPU_FILE    += CPU_SrcSolver.cpp  CPU_SrcSolver_IterateAllCells.cpp  CPU_Src_Deleptonization.cpp \
-               CPU_Src_User_Template.cpp  CPU_Src_ExactCooling.cpp
+               CPU_Src_User_Template.cpp  CPU_Src_ExactCooling.cpp  dtSolver_ExactCooling.cpp
 
 CPU_FILE    += Src_AdvanceDt.cpp  Src_Prepare.cpp  Src_Close.cpp  Src_Init.cpp  Src_End.cpp \
                Src_WorkBeforeMajorFunc.cpp

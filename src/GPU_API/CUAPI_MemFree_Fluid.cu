@@ -95,15 +95,15 @@ void CUAPI_MemFree_Fluid( const int GPU_NStream )
 #  endif
 #  endif // FLU_SCHEME
 
-#  if ( MODEL == HYDRO )
-   if ( d_SrcEC_TEF_lambda != NULL ) {  CUDA_CHECK_ERROR(  cudaFree( d_SrcEC_TEF_lambda )  );  d_SrcEC_TEF_lambda = NULL; }
-   if ( d_SrcEC_TEF_alpha  != NULL ) {  CUDA_CHECK_ERROR(  cudaFree( d_SrcEC_TEF_alpha  )  );  d_SrcEC_TEF_alpha  = NULL; }
-   if ( d_SrcEC_TEFc       != NULL ) {  CUDA_CHECK_ERROR(  cudaFree( d_SrcEC_TEFc       )  );  d_SrcEC_TEFc       = NULL; }
-
-   SrcTerms.EC_TEF_lambda_DevPtr = NULL;
-   SrcTerms.EC_TEF_alpha_DevPtr  = NULL;
-   SrcTerms.EC_TEFc_DevPtr       = NULL;
-#  endif
+//#  if ( MODEL == HYDRO )
+//   if ( d_SrcEC_TEF_lambda != NULL ) {  CUDA_CHECK_ERROR(  cudaFree( d_SrcEC_TEF_lambda )  );  d_SrcEC_TEF_lambda = NULL; }
+//   if ( d_SrcEC_TEF_alpha  != NULL ) {  CUDA_CHECK_ERROR(  cudaFree( d_SrcEC_TEF_alpha  )  );  d_SrcEC_TEF_alpha  = NULL; }
+//   if ( d_SrcEC_TEFc       != NULL ) {  CUDA_CHECK_ERROR(  cudaFree( d_SrcEC_TEFc       )  );  d_SrcEC_TEFc       = NULL; }
+//
+//   SrcTerms.EC_TEF_lambda_DevPtr = NULL;
+//   SrcTerms.EC_TEF_alpha_DevPtr  = NULL;
+//   SrcTerms.EC_TEFc_DevPtr       = NULL;
+//#  endif
 
 #  if ( MODEL != HYDRO  &&  MODEL != ELBDM )
 #    warning : DO YOU WANT TO ADD SOMETHING HERE FOR THE NEW MODEL ??

@@ -110,6 +110,9 @@ void Init_Field()
 // 4. must put all built-in scalars at the END of the field list and with the same order as their
 //    corresponding symbolic constants (e.g., DUAL/CRAY) defined in Macro.h
 //    --> as we still rely on these constants (e.g., DENS, DUAL) in the fluid solvers
+   Idx_tcool = AddField( "tcool", NORMALIZE_NO, INTERP_FRAC_NO );
+   if ( Idx_tcool != TCOOL )    Aux_Error( ERROR_INFO, "inconsistent Idx_tcool (%d != %d) !!\n", Idx_tcool, TCOOL );
+
 #  ifdef COSMIC_RAY
    Idx_CRay = AddField( "CRay", NORMALIZE_NO, INTERP_FRAC_NO );
    if ( Idx_CRay != CRAY )    Aux_Error( ERROR_INFO, "inconsistent Idx_CRay (%d != %d) !!\n", Idx_CRay, CRAY );
@@ -120,8 +123,6 @@ void Init_Field()
    if ( Idx_Dual != DUAL )    Aux_Error( ERROR_INFO, "inconsistent Idx_Dual (%d != %d) !!\n", Idx_Dual, DUAL );
 #  endif
 
-   Idx_tcool = AddField( "tcool", NORMALIZE_NO, INTERP_FRAC_NO );
-   if ( Idx_tcool != TCOOL )    Aux_Error( ERROR_INFO, "inconsistent Idx_tcool (%d != %d) !!\n", Idx_tcool, TCOOL );
 
 // 5. validate if all fields have been set properly
    if ( NDefinedField != NCOMP_TOTAL )
