@@ -43,11 +43,11 @@ extern real (*d_FC_Mag_Half)[NCOMP_MAG][ FLU_NXT_P1*SQR(FLU_NXT) ];
 extern real (*d_EC_Ele     )[NCOMP_MAG][ CUBE(N_EC_ELE)          ];
 #endif
 #endif // FLU_SCHEME
-#if ( MODEL == HYDRO )
-extern double  *d_SrcEC_TEF_lambda;
-extern double  *d_SrcEC_TEF_alpha;
-extern double  *d_SrcEC_TEFc;
-#endif
+//#if ( MODEL == HYDRO )
+//extern double  *d_SrcEC_TEF_lambda;
+//extern double  *d_SrcEC_TEF_alpha;
+//extern double  *d_SrcEC_TEFc;
+//#endif
 
 #if ( MODEL != HYDRO  &&  MODEL != ELBDM )
 #  warning : DO YOU WANT TO ADD SOMETHING HERE FOR THE NEW MODEL ??
@@ -300,11 +300,11 @@ int CUAPI_MemAllocate_Fluid( const int Flu_NPG, const int Pot_NPG, const int Src
       }
    } // for (int t=0; t<2; t++)
 
-#  if ( MODEL == HYDRO )
-      CUDA_CHECK_MALLOC(  cudaMallocHost( (void**) &h_SrcEC_TEF_lambda,    EC_TEF_lambda_MemSize  )  );
-      CUDA_CHECK_MALLOC(  cudaMallocHost( (void**) &h_SrcEC_TEF_alpha,     EC_TEF_alpha_MemSize   )  );
-      CUDA_CHECK_MALLOC(  cudaMallocHost( (void**) &h_SrcEC_TEFc,          EC_TEFc_MemSize        )  );
-#  endif
+//#  if ( MODEL == HYDRO )
+//      CUDA_CHECK_MALLOC(  cudaMallocHost( (void**) &h_SrcEC_TEF_lambda,    EC_TEF_lambda_MemSize  )  );
+//      CUDA_CHECK_MALLOC(  cudaMallocHost( (void**) &h_SrcEC_TEF_alpha,     EC_TEF_alpha_MemSize   )  );
+//      CUDA_CHECK_MALLOC(  cudaMallocHost( (void**) &h_SrcEC_TEFc,          EC_TEFc_MemSize        )  );
+//#  endif
 
 // create streams
    Stream = new cudaStream_t [GPU_NStream];

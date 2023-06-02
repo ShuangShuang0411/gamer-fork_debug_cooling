@@ -427,13 +427,13 @@ void Src_PassData2GPU_ExactCooling()
 {
    const long EC_TEF_MemSize = sizeof(double)*SrcTerms.EC_TEF_N; 
 
-   CUDA_CHECK_MALLOC(  cudaMalloc( (void**) &d_SrcEC_TEF_lambda, EC_TEF_MemSize )  ); 
-   CUDA_CHECK_MALLOC(  cudaMalloc( (void**) &d_SrcEC_TEF_alpha,  EC_TEF_MemSize )  );  
-   CUDA_CHECK_MALLOC(  cudaMalloc( (void**) &d_SrcEC_TEFc,       EC_TEF_MemSize )  );  
+   CUDA_CHECK_ERROR(  cudaMalloc( (void**) &d_SrcEC_TEF_lambda, EC_TEF_MemSize )  ); 
+   CUDA_CHECK_ERROR(  cudaMalloc( (void**) &d_SrcEC_TEF_alpha,  EC_TEF_MemSize )  );  
+   CUDA_CHECK_ERROR(  cudaMalloc( (void**) &d_SrcEC_TEFc,       EC_TEF_MemSize )  );  
 
-   CUDA_CHECK_MALLOC(  cudaMallocHost( (void**) &h_SrcEC_TEF_lambda, EC_TEF_MemSize  )  );        
-   CUDA_CHECK_MALLOC(  cudaMallocHost( (void**) &h_SrcEC_TEF_alpha,  EC_TEF_MemSize  )  );  
-   CUDA_CHECK_MALLOC(  cudaMallocHost( (void**) &h_SrcEC_TEFc,       EC_TEF_MemSize  )  );  
+//   CUDA_CHECK_ERROR(  cudaMallocHost( (void**) &h_SrcEC_TEF_lambda, EC_TEF_MemSize  )  );        
+//   CUDA_CHECK_ERROR(  cudaMallocHost( (void**) &h_SrcEC_TEF_alpha,  EC_TEF_MemSize  )  );  
+//   CUDA_CHECK_ERROR(  cudaMallocHost( (void**) &h_SrcEC_TEFc,       EC_TEF_MemSize  )  );  
                                                  
 // store the device pointers in SrcTerms when using GPU
    SrcTerms.EC_TEF_lambda_DevPtr = d_SrcEC_TEF_lambda;
@@ -591,19 +591,27 @@ void Src_Init_ExactCooling()
    const double TEF_dltemp   = Src_EC_AuxArray_Flt[3];   // sampling resolution (Kelvin), LOG!
    const double cl_Z         = Src_EC_AuxArray_Flt[4];   // metallicity (in Zsun)
    const double cl_moli_mole = Src_EC_AuxArray_Flt[5];   // Assume the molecular weights are constant, mu_e*mu_i = 1.464 
+   const double cl_mol       = Src_EC_AuxArray_Flt[6];   // mean (total) molecular weights
    const double cl_mp        = Src_EC_AuxArray_Flt[7];   // proton mass
-   
+   const double cl_kB_mp     = Src_EC_AuxArray_Flt[8];   // Boltzmann constant in erg/K
+
    double emis, LAMBDAT, Ti, Tip1;
 // k = TEF_N-1
    Cool_fct(1.0, TEF_TN, &emis, &LAMBDAT, cl_Z, cl_moli_mole, cl_mp);
-   h_SrcEC_TEF_lambda[TEF_N-1] = LAMBDAT;
+   h_SrcEC_TEF_lambda[TEF_N-1] = LAMBDAT*cl_mol/cl_moli_mole/cl_kB_mp;
    h_SrcEC_TEF_alpha[TEF_N-1]  = 0.0;  //h_SrcEC_TEF_alpha[TEF_N-2];   // is never required >> just as N-2
+   printf("Debugging!! TEF_TN = %14.8e, cl_Z = %14.8e, cl_moli_mole = %14.8e, cl_mp = %14.8e, LAMBDAT = %14.8e, cl_kB_mp = %14.8e, LAMBDAT*cl_mol/cl_moli_mole/cl_kB_mp = %14.8e\n", TEF_TN, cl_Z, cl_moli_mole, cl_mp, LAMBDAT, cl_kB_mp, LAMBDAT*cl_mol/cl_moli_mole/cl_kB_mp);
     
    for (int i=TEF_N-2; i>=0; i--){
       Ti   = POW(10, log10(TEF_Tmin) + i*TEF_dltemp);
       Tip1 = POW(10, log10(TEF_Tmin) + (i+1)*TEF_dltemp);
       Cool_fct(1.0, Ti, &emis, &LAMBDAT, cl_Z, cl_moli_mole, cl_mp);
-      h_SrcEC_TEF_lambda[i] = LAMBDAT;
+      h_SrcEC_TEF_lambda[i] = LAMBDAT*cl_mol/cl_moli_mole/cl_kB_mp;
+#     ifdef GAMER_DEBUG
+      if ( h_SrcEC_TEF_lambda[i] <= 0.0 ){
+         Aux_Error( ERROR_INFO, "h_SrcEC_TEF_lambda[i] invalid (can not be smaller or equal to zero)!!\n" );
+      }
+#     endif
       h_SrcEC_TEF_alpha[i]  = (log10(h_SrcEC_TEF_lambda[i+1]) - log10(h_SrcEC_TEF_lambda[i])) / (log10(Tip1) - log10(Ti));
    }
     
@@ -623,7 +631,7 @@ void Src_Init_ExactCooling()
    Src_PassData2GPU_ExactCooling();
 #  endif
 
-   printf( "Debugging!! Finish lambda initialization. h_SrcEC_TEF_lambda[20] = %14.8e.\n", h_SrcEC_TEF_lambda[20] );
+   printf( "Debugging!! Finish lambda initialization. h_SrcEC_TEF_lambda[TEF_N-1] = %14.8e.\n", h_SrcEC_TEF_lambda[TEF_N-1] );
 
 // set the auxiliary functions
 //   Src_WorkBeforeMajorFunc_EC_Ptr = Src_WorkBeforeMajorFunc_ExactCooling;

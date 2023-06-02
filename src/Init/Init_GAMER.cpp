@@ -361,8 +361,8 @@ void Init_GAMER( int *argc, char ***argv )
          } // for (int PID=0; PID<amr->NPatchComma[lv][1]; PID++)
       } // OpenMP parallel region
 
-      IsInit_tcool[lv] = true;
-      printf( "Debugging!! Successfully initialize tcool.\n" );
+//      IsInit_tcool[lv] = true;
+      printf( "Debugging!! Successfully initialize tcool. fluid[TCOOL] = %14.8e\n", amr->patch[ amr->FluSg[0] ][0][0]->fluid[TCOOL][0][1][0] );
 
    } // for (int lv=0; lv<NLEVEL; lv++)
 
