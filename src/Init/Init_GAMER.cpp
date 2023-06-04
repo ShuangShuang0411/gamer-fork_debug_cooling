@@ -318,6 +318,24 @@ void Init_GAMER( int *argc, char ***argv )
 #  endif // #ifdef PARTICLE
 
 
+// Initiate the source-term fields
+   if ( OPT__INIT != INIT_BY_RESTART )
+   {
+      if ( MPI_Rank == 0 )    Aux_Message( stdout, "%s ...\n", "Initiating source-term fields" );
+
+      for (int lv=0; lv<NLEVEL; lv++)
+      {
+         if ( MPI_Rank == 0 )    Aux_Message( stdout, "   Lv %2d ... ", lv );
+
+         Src_AdvanceDt( lv, Time[lv], Time[lv], 0.0, amr->FluSg[lv], amr->MagSg[lv], false, false );
+
+         if ( MPI_Rank == 0 )    Aux_Message( stdout, "done\n" );
+      } // for (int lv=0; lv<NLEVEL; lv++)
+
+      if ( MPI_Rank == 0 )    Aux_Message( stdout, "%s ... done\n", "Initiating source-term fields" );
+   } // if ( OPT__INIT != INIT_BY_RESTART )
+
+/*
 // Initialize tcool for ExactCooling
 #  ifdef OPENMP
    const int NT = OMP_NTHREAD;   // number of OpenMP threads
@@ -357,6 +375,7 @@ void Init_GAMER( int *argc, char ***argv )
                SrcTerms.EC_CPUPtr( fluid, B, &SrcTerms, 0.0, NULL_REAL, x, y, z, NULL_REAL, NULL_REAL,
                                    MIN_DENS, MIN_PRES, MIN_EINT, NULL,
                                    Src_EC_AuxArray_Flt, Src_EC_AuxArray_Int );
+               amr->patch[ amr->FluSg[lv] ][lv][PID]->fluid[TCOOL][k][j][i] = fluid[TCOOL];
             }}} // i,j,k
          } // for (int PID=0; PID<amr->NPatchComma[lv][1]; PID++)
       } // OpenMP parallel region
@@ -365,5 +384,5 @@ void Init_GAMER( int *argc, char ***argv )
       printf( "Debugging!! Successfully initialize tcool. fluid[TCOOL] = %14.8e\n", amr->patch[ amr->FluSg[0] ][0][0]->fluid[TCOOL][0][1][0] );
 
    } // for (int lv=0; lv<NLEVEL; lv++)
-
+*/
 } // FUNCTION : Init_GAMER

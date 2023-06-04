@@ -235,6 +235,12 @@ static void Src_ExactCooling( real fluid[], const real B[],
    tcool = cl_CV*Tini/(fluid[DENS]*lambdaTini);
    fluid[TCOOL] = tcool;
 
+// TMP!!
+//   if ( tcool <= TINY_NUMBER ){
+//      printf( "DEBUGGING! tcool = %13.7e, dt = %13.7e\n", tcool, dt );
+//   }
+//   if ( dt == 0.0 )   return;
+
 // (3) Calculate Ynew
    Ynew  = TEF( Tini, k, TEF_lambda, TEF_alpha, TEFc, AuxArray_Flt, AuxArray_Int ) + (Tini/TEF_TN)*(TEF_lambda[TEF_N-1]/lambdaTini)*(dt/tcool);
 
@@ -260,11 +266,20 @@ static void Src_ExactCooling( real fluid[], const real B[],
 #  endif                      
 
 //   if ( x < 1.2e21 && x > 1.15e21 && y < 0.7e21 && y > 0.65e21 &&  z < 1.4e21 &&  z > 1.35e21 ){ 
-   if ( x < 6.155 && x > 6.145 && y < 7.505 && y > 7.495 &&  z < 7.505 &&  z > 7.495 ){
-      printf( "Debugging!! Eint = %14.8e, Eintf = %14.8e, Enth = %14.8e, fluid[DENS] = %14.8e, fluid[MOM] = %14.8e, fluid[ENGY] = %14.8e, Temp = %14.8e, tcool = %14.8e, Ynew = %14.8e, knew = %d, TEF_alpha[knew] = %14.8e, TEF_lambda[knew] = %14.8e, TEF_lambda[TEF_N-1] = %14.8e, Yk = %14.8e, Tk = %14.8e\n", Eint, Eintf, Enth, fluid[DENS], sqrt(SQR(fluid[MOMX])+SQR(fluid[MOMY])+SQR(fluid[MOMZ])), fluid[ENGY], Temp, tcool, Ynew, knew, TEF_alpha[knew], TEF_lambda[knew], TEF_lambda[TEF_N-1], TEFc[knew], Tk );
-   }
+//   if ( x < 6.155 && x > 6.145 && y < 7.505 && y > 7.495 &&  z < 7.505 &&  z > 7.495 ){
+//      printf( "Debugging!! Eint = %14.8e, Eintf = %14.8e, Enth = %14.8e, fluid[DENS] = %14.8e, fluid[MOM] = %14.8e, fluid[ENGY] = %14.8e, Temp = %14.8e, tcool = %14.8e, Ynew = %14.8e, knew = %d, TEF_alpha[knew] = %14.8e, TEF_lambda[knew] = %14.8e, TEF_lambda[TEF_N-1] = %14.8e, Yk = %14.8e, Tk = %14.8e\n", Eint, Eintf, Enth, fluid[DENS], sqrt(SQR(fluid[MOMX])+SQR(fluid[MOMY])+SQR(fluid[MOMZ])), fluid[ENGY], Temp, tcool, Ynew, knew, TEF_alpha[knew], TEF_lambda[knew], TEF_lambda[TEF_N-1], TEFc[knew], Tk );
+//   }
    dedtmean = -(Eintf-Eint)/dt;
    fluid[ENGY] = Enth + Eintf;
+
+#  ifdef GAMER_DEBUG
+   const real Eintff = real(Eintf);
+   if (  Hydro_CheckUnphysical( UNPHY_MODE_SING, &Eintff, "output internal energy density", ERROR_INFO, UNPHY_VERBOSE )  )
+   {
+      printf( "Dens = %13.7e, Eint = %13.7e, Eintf = %13.7e, Engy = %13.7e\n", fluid[DENS], Eint, Eintf, fluid[ENGY] );
+      printf( "dt = %13.7e, Ynew = %13.7e, tcool = %13.7e, Temp = %13.7e\n", dt, Ynew, tcool, Temp );
+   }
+#  endif // GAMER_DEBUG
 
 } // FUNCTION : Src_ExactCooling
 
