@@ -236,8 +236,9 @@ static void Src_ExactCooling( real fluid[], const real B[],
    fluid[TCOOL] = tcool;
 
 // TMP!!
-//   if ( tcool <= TINY_NUMBER ){
-//      printf( "DEBUGGING! tcool = %13.7e, dt = %13.7e\n", tcool, dt );
+//   if ( Eint <= 1e-20 || Pres <= 1e-20 ){
+//   if ( tcool < 1e-30 ){
+//      printf( "DEBUGGING! Eint = %13.7e, Pres = %13.7e, tcool = %13.7e, dt = %13.7e\n", Eint, Pres, tcool, dt );
 //   }
 //   if ( dt == 0.0 )   return;
 
@@ -360,7 +361,7 @@ double TEFinv( double Y, int k, const double TEF_lambda[], const double TEF_alph
 void Src_WorkBeforeMajorFunc_ExactCooling( const int lv, const double TimeNew, const double TimeOld, const double dt,
                                            double AuxArray_Flt[], int AuxArray_Int[] )
 {
-/*
+
    if ( IsInit == true )   return;
 
 // Initialize the cooling function
@@ -421,7 +422,7 @@ void Src_WorkBeforeMajorFunc_ExactCooling( const int lv, const double TimeNew, c
 
    IsInit = true; 
 //   printf( "Debugging!! Finish lambda initialization. h_SrcEC_TEF_lambda[TEF_N-2] = %14.8e.\n", h_SrcEC_TEF_lambda[TEF_N-2] );
-*/
+
 } // FUNCTION : Src_WorkBeforeMajorFunc_ExactCooling
 #endif
 
@@ -441,7 +442,7 @@ void Src_WorkBeforeMajorFunc_ExactCooling( const int lv, const double TimeNew, c
 void Src_PassData2GPU_ExactCooling()
 {
    const long EC_TEF_MemSize = sizeof(double)*SrcTerms.EC_TEF_N; 
-
+/*
    CUDA_CHECK_ERROR(  cudaMalloc( (void**) &d_SrcEC_TEF_lambda, EC_TEF_MemSize )  ); 
    CUDA_CHECK_ERROR(  cudaMalloc( (void**) &d_SrcEC_TEF_alpha,  EC_TEF_MemSize )  );  
    CUDA_CHECK_ERROR(  cudaMalloc( (void**) &d_SrcEC_TEFc,       EC_TEF_MemSize )  );  
@@ -454,7 +455,7 @@ void Src_PassData2GPU_ExactCooling()
    SrcTerms.EC_TEF_lambda_DevPtr = d_SrcEC_TEF_lambda;
    SrcTerms.EC_TEF_alpha_DevPtr  = d_SrcEC_TEF_alpha;
    SrcTerms.EC_TEFc_DevPtr       = d_SrcEC_TEFc;
-
+*/
 // use synchronous transfer
    CUDA_CHECK_ERROR(  cudaMemcpy( d_SrcEC_TEF_lambda, h_SrcEC_TEF_lambda, EC_TEF_MemSize, cudaMemcpyHostToDevice )  );
    CUDA_CHECK_ERROR(  cudaMemcpy( d_SrcEC_TEF_alpha,  h_SrcEC_TEF_alpha,  EC_TEF_MemSize, cudaMemcpyHostToDevice )  );
@@ -587,7 +588,7 @@ void Src_Init_ExactCooling()
    if ( OPT__INIT == 2 ){
       for (int i=0; i<NLEVEL; i++)   IsInit_tcool[i] = true; 
    }
-
+/*
 // Allocate h_SrcEC_* arrays
    h_SrcEC_TEF_lambda = new double [SrcTerms.EC_TEF_N];
    h_SrcEC_TEF_alpha  = new double [SrcTerms.EC_TEF_N];
@@ -647,7 +648,7 @@ void Src_Init_ExactCooling()
 #  endif
 
    printf( "Debugging!! Finish lambda initialization. h_SrcEC_TEF_lambda[TEF_N-1] = %14.8e.\n", h_SrcEC_TEF_lambda[TEF_N-1] );
-
+*/
 // set the auxiliary functions
 //   Src_WorkBeforeMajorFunc_EC_Ptr = Src_WorkBeforeMajorFunc_ExactCooling;
 //   Src_End_EC_Ptr                 = Src_End_ExactCooling;
@@ -726,7 +727,7 @@ void Cool_fct( double Dens, double Temp, double* Emis, double* Lambdat, double Z
 //-----------------------------------------------------------------------------------------
 void Src_End_ExactCooling()
 {
-
+/*
 // Free the memory of the h_SrcEC_* arrays
    delete [] h_SrcEC_TEF_lambda;     h_SrcEC_TEF_lambda = NULL;        
    delete [] h_SrcEC_TEF_alpha;      h_SrcEC_TEF_alpha  = NULL;
@@ -739,12 +740,12 @@ void Src_End_ExactCooling()
 #  ifdef GPU
    CUAPI_MemFree_ExactCooling();
 #  endif
-
+*/
 } // FUNCTION : Src_End_ExactCooling
 
 #endif // #ifndef __CUDACC__
 
-
+/*
 #ifdef __CUDACC__
 //-------------------------------------------------------------------------------------------------------
 // Function    :  CUAPI_MemFree_ExactCooling
@@ -769,6 +770,6 @@ void CUAPI_MemFree_ExactCooling()
 
 } // FUNCTION : CUAPI_MemFree_ExactCooling
 #endif // #ifdef __CUDACC__
-
+*/
 
 #endif // #if ( MODEL == HYDRO )  

@@ -214,7 +214,12 @@ int Flu_ResetByUser_Func_ClusterMerger( real fluid[], const double Emag, const d
       fluid[MOMY] += BH_Vel[status-1][1]*fluid[DENS];
       fluid[MOMZ] += BH_Vel[status-1][2]*fluid[DENS]; 
 
-      fluid[ENGY] += 0.5*((SQR(fluid[MOMX])+SQR(fluid[MOMY])+SQR(fluid[MOMZ]))/fluid[DENS]-(SQR(MOMX_old)+SQR(MOMY_old)+SQR(MOMZ_old))/tmp_dens);
+//      fluid[ENGY] += 0.5*((SQR(fluid[MOMX])+SQR(fluid[MOMY])+SQR(fluid[MOMZ]))/fluid[DENS]-(SQR(MOMX_old)+SQR(MOMY_old)+SQR(MOMZ_old))/tmp_dens);
+      double Ek_inj = 0.5*((SQR(fluid[MOMX])+SQR(fluid[MOMY])+SQR(fluid[MOMZ]))/fluid[DENS]-(SQR(MOMX_old)+SQR(MOMY_old)+SQR(MOMZ_old))/tmp_dens);
+      fluid[ENGY] += Ek_inj;
+      if ( fluid[ENGY] - Ek_inj <= 1e-15 ){
+         printf("DEBUGGING!! fluid[ENGY] = %13.7e, Ek_inj = %13.7e, lv = %d, Time = %13.7e, dt = %13.7e\n", fluid[ENGY], Ek_inj, lv, Time, dt);
+      }
 
    } // if ( status != 0 )  
 

@@ -317,7 +317,7 @@ void Init_GAMER( int *argc, char ***argv )
 
 #  endif // #ifdef PARTICLE
 
-
+/*
 // Initiate the source-term fields
    if ( OPT__INIT != INIT_BY_RESTART )
    {
@@ -334,7 +334,7 @@ void Init_GAMER( int *argc, char ***argv )
 
       if ( MPI_Rank == 0 )    Aux_Message( stdout, "%s ... done\n", "Initiating source-term fields" );
    } // if ( OPT__INIT != INIT_BY_RESTART )
-
+*/
 /*
 // Initialize tcool for ExactCooling
 #  ifdef OPENMP
