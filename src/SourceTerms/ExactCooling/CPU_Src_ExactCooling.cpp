@@ -221,6 +221,15 @@ static void Src_ExactCooling( real fluid[], const real B[],
    Enth = fluid[ENGY] - Eint;
    Tini = Temp;
 
+#  ifdef GAMER_DEBUG
+   if ( Temp < TEF_Tmin || Temp > TEF_TN ){
+      printf("Error! Temp = %13.7e out of range.\n", Temp);
+   }
+   if ( Pres <= TINY_NUMBER || Eint <= TINY_NUMBER ){ // || Enth < 0.0 ){
+      printf("Error! Pres = %13.7e, Eint = %13.7e, Enth = %13.7e.\n", Pres, Eint, Enth);
+   } 
+#  endif
+
 // (2) Decide the index k (an interval) where Tini falls into
    k = int((log10(Tini)-log10(TEF_Tmin))/TEF_dltemp);   // Note: array index changed, now starts from k=0 
 #  ifdef GAMER_DEBUG
@@ -236,10 +245,10 @@ static void Src_ExactCooling( real fluid[], const real B[],
    fluid[TCOOL] = tcool;
 
 // TMP!!
-//   if ( tcool <= TINY_NUMBER ){
-//      printf( "DEBUGGING! tcool = %13.7e, dt = %13.7e\n", tcool, dt );
-//   }
-//   if ( dt == 0.0 )   return;
+   if ( fluid[TCOOL] <= 0.0 ){
+      printf( "DEBUGGING! tcool = %13.7e, dt = %13.7e, Tini = %13.7e, lambdaTini = %13.7e\n", fluid[TCOOL], dt, Tini, lambdaTini );
+   }
+   if ( dt == 0.0 )   return;
 
 // (3) Calculate Ynew
    Ynew  = TEF( Tini, k, TEF_lambda, TEF_alpha, TEFc, AuxArray_Flt, AuxArray_Int ) + (Tini/TEF_TN)*(TEF_lambda[TEF_N-1]/lambdaTini)*(dt/tcool);
@@ -266,8 +275,9 @@ static void Src_ExactCooling( real fluid[], const real B[],
 #  endif                      
 
 //   if ( x < 1.2e21 && x > 1.15e21 && y < 0.7e21 && y > 0.65e21 &&  z < 1.4e21 &&  z > 1.35e21 ){ 
-//   if ( x < 6.155 && x > 6.145 && y < 7.505 && y > 7.495 &&  z < 7.505 &&  z > 7.495 ){
-//      printf( "Debugging!! Eint = %14.8e, Eintf = %14.8e, Enth = %14.8e, fluid[DENS] = %14.8e, fluid[MOM] = %14.8e, fluid[ENGY] = %14.8e, Temp = %14.8e, tcool = %14.8e, Ynew = %14.8e, knew = %d, TEF_alpha[knew] = %14.8e, TEF_lambda[knew] = %14.8e, TEF_lambda[TEF_N-1] = %14.8e, Yk = %14.8e, Tk = %14.8e\n", Eint, Eintf, Enth, fluid[DENS], sqrt(SQR(fluid[MOMX])+SQR(fluid[MOMY])+SQR(fluid[MOMZ])), fluid[ENGY], Temp, tcool, Ynew, knew, TEF_alpha[knew], TEF_lambda[knew], TEF_lambda[TEF_N-1], TEFc[knew], Tk );
+//   if ( x < 6.165 && x > 6.145 && y < 7.505 && y > 7.485 &&  z < 7.505 &&  z > 7.485 ){
+//   if ( Eint != Eintf ){
+//      printf( "Debugging!! dt = %14.8e, Eint = %14.8e, Eintf = %14.8e, Enth = %14.8e, fluid[DENS] = %14.8e, fluid[MOM] = %14.8e, fluid[ENGY] = %14.8e, Temp = %14.8e, tcool = %14.8e, Ynew = %14.8e, knew = %d, TEF_alpha[knew] = %14.8e, TEF_lambda[knew] = %14.8e, TEF_lambda[TEF_N-1] = %14.8e, Yk = %14.8e, Tk = %14.8e\n", dt, Eint, Eintf, Enth, fluid[DENS], sqrt(SQR(fluid[MOMX])+SQR(fluid[MOMY])+SQR(fluid[MOMZ])), fluid[ENGY], Temp, tcool, Ynew, knew, TEF_alpha[knew], TEF_lambda[knew], TEF_lambda[TEF_N-1], TEFc[knew], Tk );
 //   }
    dedtmean = -(Eintf-Eint)/dt;
    fluid[ENGY] = Enth + Eintf;

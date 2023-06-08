@@ -392,6 +392,17 @@ void Flu_ResetByUser_API_ClusterMerger( const int lv, const int FluSg, const dou
             const real Emag = (real)0.0;
 #           endif
 
+//          TMP!!
+            const real Eint = Hydro_Con2Eint( fluid_Bondi[0], fluid_Bondi[1], fluid_Bondi[2], fluid_Bondi[3], fluid_Bondi[4], false, NULL_REAL, Emag );
+#           ifdef GAMER_DEBUG                                                                    
+//            if (Hydro_CheckUnphysical( UNPHY_MODE_SING, &Eint, "output internal energy density", ERROR_INFO, UNPHY_VERBOSE))
+            if ( Eint < MIN_EINT || fluid_Bondi[0] < MIN_DENS )
+            {                                                                                 
+               printf( "DEBUGGING bf fb! Dens = %13.7e, Eint = %13.7e, Engy = %13.7e\n", fluid_Bondi[0], Eint, fluid_Bondi[4] );  
+               printf( "DEBUGGING bf fb! dt = %13.7e, lv = %d, TimeNew = %13.7e\n", dt, lv, TimeNew );
+            }                                                                                 
+#           endif // GAMER_DEBUG     
+
 //          calculate the average density, sound speed and gas velocity inside accretion radius
             if (SQR(x2-ClusterCen[c][0])+SQR(y2-ClusterCen[c][1])+SQR(z2-ClusterCen[c][2]) <= SQR(R_acc)){
                rho += fluid_Bondi[0]*dv;
@@ -584,6 +595,17 @@ void Flu_ResetByUser_API_ClusterMerger( const int lv, const int FluSg, const dou
 
 //       reset this cell
          Reset = Flu_ResetByUser_Func_ClusterMerger( fluid, Emag, x, y, z, TimeNew, dt, lv, NULL );
+//TMP!!!
+#        ifdef GAMER_DEBUG
+         const real Eint = Hydro_Con2Eint( fluid[0], fluid[1], fluid[2], fluid[3], fluid[4], false, NULL_REAL, Emag ); 
+//         if (Hydro_CheckUnphysical( UNPHY_MODE_SING, &Eint, "output internal energy density", ERROR_INFO, UNPHY_VERBOSE))
+         if ( Eint < MIN_EINT || fluid[0] < MIN_DENS )
+         {                          
+            printf( "DEBUGGING after fb! Dens = %13.7e, Eint = %13.7e, Engy = %13.7e\n", fluid[0], Eint, fluid[4] );  
+            printf( "DEBUGGING after fb! dt = %13.7e, lv = %d, TimeNew = %13.7e\n", dt, lv, TimeNew );
+         }                                                                                     
+#        endif // GAMER_DEBUG     
+
 
 //       operations necessary only when this cell has been reset
          if ( Reset != 0 )

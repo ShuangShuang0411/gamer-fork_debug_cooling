@@ -257,7 +257,14 @@ void Flu_FixUp_Flux( const int lv )
                {
 //                floor and normalize the passive scalars
 #                 if ( NCOMP_PASSIVE > 0  &&  MODEL == HYDRO )
+                  if ( CorrVal[TCOOL] <= TINY_NUMBER ){
+                     printf("DEBUGGING! Before: tcool = %13.7e at level %d!\n", CorrVal[TCOOL], lv );
+                  }
                   for (int v=NCOMP_FLUID; v<NCOMP_TOTAL; v++)  CorrVal[v] = FMAX( CorrVal[v], TINY_NUMBER );
+//                TMP!!
+                  if ( CorrVal[TCOOL] <= TINY_NUMBER ){
+                     printf("DEBUGGING! tcool <= TINY_NUMBER at level %d!\n", lv );
+                  }
 
                   if ( OPT__NORMALIZE_PASSIVE )
                      Hydro_NormalizePassive( CorrVal[DENS], CorrVal+NCOMP_FLUID, PassiveNorm_NVar, PassiveNorm_VarIdx );
